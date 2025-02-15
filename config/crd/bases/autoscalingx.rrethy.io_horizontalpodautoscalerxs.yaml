@@ -1,0 +1,90 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.17.1
+  name: horizontalpodautoscalerxs.autoscalingx.rrethy.io
+spec:
+  group: autoscalingx.rrethy.io
+  names:
+    categories:
+    - all
+    kind: HorizontalPodAutoscalerX
+    listKind: HorizontalPodAutoscalerXList
+    plural: horizontalpodautoscalerxs
+    shortNames:
+    - hpax
+    singular: horizontalpodautoscalerx
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: The name of the HorizontalPodAutoscaler to scale
+      jsonPath: .spec.hpaTargetName
+      name: HPA
+      type: string
+    name: v1
+    schema:
+      openAPIV3Schema:
+        description: HorizontalPodAutoscalerX is the Schema for the horizontalpodautoscalerxes
+          API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: HorizontalPodAutoscalerXSpec defines the desired state of
+              HorizontalPodAutoscalerX.
+            properties:
+              fallback:
+                description: Fallback defines the fallback behavior.
+                properties:
+                  duration:
+                    description: |-
+                      Duration is the minimum duration to observe a failing condition on the
+                      HPA before triggering a fallback.
+                    type: string
+                  replicas:
+                    description: |-
+                      Replicas is the number of replicas to fallback to. The is manifested as
+                      patching the HorizontalPodAutoscaler.spec.minReplicas.
+                    format: int32
+                    minimum: 0
+                    type: integer
+                required:
+                - replicas
+                type: object
+              hpaTargetName:
+                description: HPATargetName is the name of the HorizontalPodAutoscaler
+                  to scale.
+                minLength: 1
+                type: string
+            required:
+            - hpaTargetName
+            type: object
+          status:
+            description: HorizontalPodAutoscalerXStatus defines the observed state
+              of HorizontalPodAutoscalerX.
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      scale:
+        specReplicasPath: .spec.minReplicas
+        statusReplicasPath: .status.minReplicas
+      status: {}
