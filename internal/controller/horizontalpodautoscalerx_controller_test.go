@@ -16,13 +16,15 @@ import (
 
 var _ = Describe("HorizontalPodAutoscalerX Controller", func() {
 	Context("When reconciling a resource", func() {
-		const resourceName = "test-resource"
+		const resourceName = "myresource"
+		const namespace = "default"
+		const hpaName = "myhpa"
 
 		ctx := context.Background()
 
 		typeNamespacedName := types.NamespacedName{
 			Name:      resourceName,
-			Namespace: "default", // TODO(user):Modify as needed
+			Namespace: namespace,
 		}
 		horizontalpodautoscalerx := &autoscalingxv1.HorizontalPodAutoscalerX{}
 
@@ -33,16 +35,17 @@ var _ = Describe("HorizontalPodAutoscalerX Controller", func() {
 				resource := &autoscalingxv1.HorizontalPodAutoscalerX{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      resourceName,
-						Namespace: "default",
+						Namespace: namespace,
 					},
-					// TODO(user): Specify other spec details if needed.
+					Spec: autoscalingxv1.HorizontalPodAutoscalerXSpec{
+						HPATargetName: hpaName,
+					},
 				}
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 			}
 		})
 
 		AfterEach(func() {
-			// TODO(user): Cleanup logic after each test, like removing the resource instance.
 			resource := &autoscalingxv1.HorizontalPodAutoscalerX{}
 			err := k8sClient.Get(ctx, typeNamespacedName, resource)
 			Expect(err).NotTo(HaveOccurred())
@@ -50,6 +53,7 @@ var _ = Describe("HorizontalPodAutoscalerX Controller", func() {
 			By("Cleanup the specific resource instance HorizontalPodAutoscalerX")
 			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
 		})
+
 		It("should successfully reconcile the resource", func() {
 			By("Reconciling the created resource")
 			controllerReconciler := &HorizontalPodAutoscalerXReconciler{
@@ -61,8 +65,6 @@ var _ = Describe("HorizontalPodAutoscalerX Controller", func() {
 				NamespacedName: typeNamespacedName,
 			})
 			Expect(err).NotTo(HaveOccurred())
-			// TODO(user): Add more specific assertions depending on your controller's reconciliation logic.
-			// Example: If you expect a certain status condition after reconciliation, verify it here.
 		})
 	})
 })
