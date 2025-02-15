@@ -1,45 +1,44 @@
-/*
-Copyright 2025.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package v1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+type Fallback struct {
+	// Replicas is the number of replicas to fallback to. The is manifested as
+	// patching the HorizontalPodAutoscaler.spec.minReplicas.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Default=1
+	Replicas int32 `json:"replicas,omitempty"`
+
+	// Duration is the minimum duration to observe a failing condition on the
+	// HPA before triggering a fallback.
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Default=0s
+	Duration metav1.Duration `json:"duration,omitempty"`
+}
 
 // HorizontalPodAutoscalerXSpec defines the desired state of HorizontalPodAutoscalerX.
 type HorizontalPodAutoscalerXSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// HPATargetName is the name of the HorizontalPodAutoscaler to scale.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	HPATargetName string `json:"hpaTargetName,omitempty"`
 
-	// Foo is an example field of HorizontalPodAutoscalerX. Edit horizontalpodautoscalerx_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// Fallback defines the fallback behavior.
+	// +kubebuilder:validation:Optional
+	Fallback *Fallback `json:"fallback,omitempty"`
 }
 
 // HorizontalPodAutoscalerXStatus defines the observed state of HorizontalPodAutoscalerX.
-type HorizontalPodAutoscalerXStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-}
+type HorizontalPodAutoscalerXStatus struct{}
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:subresource:scale:specpath=.spec.minReplicas,statuspath=.status.minReplicas
+// +kubebuilder:resource:categories=all,shortName=hpax
+// +kubebuilder:printcolumn:name="HPA",type=string,JSONPath=".spec.hpaTargetName",description="The name of the HorizontalPodAutoscaler to scale"
 
 // HorizontalPodAutoscalerX is the Schema for the horizontalpodautoscalerxes API.
 type HorizontalPodAutoscalerX struct {
