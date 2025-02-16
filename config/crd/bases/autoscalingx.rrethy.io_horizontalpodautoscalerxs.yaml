@@ -73,8 +73,14 @@ spec:
                   to scale.
                 minLength: 1
                 type: string
+              minReplicas:
+                description: MinReplicas is the minReplicas to set on the HorizontalPodAutoscaler.
+                format: int32
+                minimum: 0
+                type: integer
             required:
             - hpaTargetName
+            - minReplicas
             type: object
           status:
             description: HorizontalPodAutoscalerXStatus defines the observed state
