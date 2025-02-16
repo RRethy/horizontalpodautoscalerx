@@ -29,6 +29,11 @@ type HorizontalPodAutoscalerXSpec struct {
 	// Fallback defines the fallback behavior.
 	// +kubebuilder:validation:Optional
 	Fallback *Fallback `json:"fallback,omitempty"`
+
+	// MinReplicas is the minReplicas to set on the HorizontalPodAutoscaler.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Minimum=0
+	MinReplicas int32 `json:"minReplicas,omitempty"`
 }
 
 // HorizontalPodAutoscalerXStatus defines the observed state of HorizontalPodAutoscalerX.
