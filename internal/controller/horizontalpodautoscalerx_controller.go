@@ -6,7 +6,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -27,17 +26,33 @@ type HorizontalPodAutoscalerXReconciler struct {
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the HorizontalPodAutoscalerX object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
 //
 // For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.20.0/pkg/reconcile
+// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.18.2/pkg/reconcile
+// This Reconcile method uses the ObjectReconciler interface from https://github.com/kubernetes-sigs/controller-runtime/pull/2592.
 func (r *HorizontalPodAutoscalerXReconciler) Reconcile(ctx context.Context, hpax *autoscalingxv1.HorizontalPodAutoscalerX) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	if !hpax.DeletionTimestamp.IsZero() {
+		// The object is being deleted, don't do anything.
+		return ctrl.Result{}, nil
+	}
 
-	// TODO(user): your logic here
+	log := ctrl.LoggerFrom(ctx)
+	origStatus := hpax.Status.DeepCopy()
+	// TODO: initialize status conditions
+
+	defer func() {
+		if *origStatus != hpax.Status {
+			if err := r.Status().Update(ctx, hpax); err != nil {
+				log.Error(err, "updating status")
+			}
+		}
+	}()
+
+	err := r.reconcileHPAX(ctx, hpax)
+	if err != nil {
+		log.Error(err, "reconciling HorizontalPodAutoscalerX")
+		return ctrl.Result{}, err
+	}
 
 	return ctrl.Result{}, nil
 }
@@ -49,4 +64,8 @@ func (r *HorizontalPodAutoscalerXReconciler) SetupWithManager(mgr ctrl.Manager) 
 		WithEventFilter(predicate.Or(predicate.GenerationChangedPredicate{}, predicate.AnnotationChangedPredicate{})).
 		Named("horizontalpodautoscalerx").
 		Complete(reconcile.AsReconciler(mgr.GetClient(), r))
+}
+
+func (r *HorizontalPodAutoscalerXReconciler) reconcileHPAX(ctx context.Context, hpax *autoscalingxv1.HorizontalPodAutoscalerX) error {
+	return nil
 }
