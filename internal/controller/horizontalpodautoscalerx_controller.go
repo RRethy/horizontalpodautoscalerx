@@ -2,10 +2,14 @@ package controller
 
 import (
 	"context"
+	"fmt"
 
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -61,11 +65,36 @@ func (r *HorizontalPodAutoscalerXReconciler) Reconcile(ctx context.Context, hpax
 func (r *HorizontalPodAutoscalerXReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&autoscalingxv1.HorizontalPodAutoscalerX{}).
+		Watches(
+			&autoscalingv2.HorizontalPodAutoscaler{},
+			handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+				// TODO: Will this trigger for status changes?
+				// We want to reconcile the HorizontalPodAutoscalerX that owns the HorizontalPodAutoscaler.
+				// This can be done a variety of ways, but the simplest is to check the OwnerReferences.
+				// This works because the HorizontalPodAutoscalerX controller sets the OwnerReferences for minReplicas.
+				hpa := obj.(*autoscalingv2.HorizontalPodAutoscaler)
+				for _, ref := range hpa.OwnerReferences {
+					if ref.Kind == "HorizontalPodAutoscalerX" && ref.APIVersion == autoscalingxv1.GroupVersion.String() {
+						return []reconcile.Request{
+							{NamespacedName: types.NamespacedName{Name: ref.Name, Namespace: hpa.Namespace}},
+						}
+					}
+				}
+
+				return nil
+			}),
+		).
 		WithEventFilter(predicate.Or(predicate.GenerationChangedPredicate{}, predicate.AnnotationChangedPredicate{})).
 		Named("horizontalpodautoscalerx").
 		Complete(reconcile.AsReconciler(mgr.GetClient(), r))
 }
 
 func (r *HorizontalPodAutoscalerXReconciler) reconcileHPAX(ctx context.Context, hpax *autoscalingxv1.HorizontalPodAutoscalerX) error {
+	hpa := &autoscalingv2.HorizontalPodAutoscaler{}
+	err := r.Get(ctx, client.ObjectKey{Name: hpax.Spec.HPATargetName, Namespace: hpax.Namespace}, hpa)
+	if err != nil {
+		return fmt.Errorf("getting HorizontalPodAutoscaler %s: %w", hpax.Spec.HPATargetName, err)
+	}
+
 	return nil
 }
