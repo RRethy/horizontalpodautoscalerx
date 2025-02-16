@@ -7,6 +7,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	autoscalingxv1 "rrethy.io/horizontalpodautoscalerx/api/v1"
 )
@@ -30,7 +32,7 @@ type HorizontalPodAutoscalerXReconciler struct {
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.20.0/pkg/reconcile
-func (r *HorizontalPodAutoscalerXReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *HorizontalPodAutoscalerXReconciler) Reconcile(ctx context.Context, hpax *autoscalingxv1.HorizontalPodAutoscalerX) (ctrl.Result, error) {
 	_ = log.FromContext(ctx)
 
 	// TODO(user): your logic here
@@ -42,6 +44,7 @@ func (r *HorizontalPodAutoscalerXReconciler) Reconcile(ctx context.Context, req 
 func (r *HorizontalPodAutoscalerXReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&autoscalingxv1.HorizontalPodAutoscalerX{}).
+		WithEventFilter(predicate.Or(predicate.GenerationChangedPredicate{}, predicate.AnnotationChangedPredicate{})).
 		Named("horizontalpodautoscalerx").
-		Complete(r)
+		Complete(reconcile.AsReconciler(mgr.GetClient(), r))
 }
