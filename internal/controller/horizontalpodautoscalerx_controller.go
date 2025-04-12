@@ -4,6 +4,8 @@ import (
 	"context"
 
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -16,7 +18,6 @@ import (
 
 const (
 	ControllerName = "horizontalpodautoscalerx"
-	requeueAfter   = 30
 )
 
 // HorizontalPodAutoscalerXReconciler reconciles a HorizontalPodAutoscalerX object
@@ -45,12 +46,10 @@ func (r *HorizontalPodAutoscalerXReconciler) Reconcile(ctx context.Context, hpax
 		return ctrl.Result{}, nil
 	}
 
-	_, err := r.getHPA(ctx, hpax)
+	hpa, err := r.getHPA(ctx, hpax)
 	if err != nil {
 		log.Error(err, "getting associated HPA")
-		return ctrl.Result{
-			RequeueAfter: requeueAfter,
-		}, nil
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	orig := hpax.DeepCopy()
@@ -63,6 +62,22 @@ func (r *HorizontalPodAutoscalerXReconciler) Reconcile(ctx context.Context, hpax
 			}
 		}
 	}()
+
+	curCondition := r.getScalingActiveCondition(hpa)
+	since := r.getConditionSince(hpax, curCondition)
+	hpax.Status.ScalingActiveCondition = curCondition
+	hpax.Status.ScalingActiveConditionSince = since
+
+	if curCondition == corev1.ConditionFalse && metav1.Now().Sub(since.Time) > hpax.Spec.Fallback.Duration.Duration {
+		if hpax.Spec.Fallback != nil {
+			hpa.Spec.MinReplicas = &hpax.Spec.Fallback.Replicas
+			err := r.Update(ctx, hpa)
+			if err != nil {
+				log.Error(err, "updating HPA")
+				return ctrl.Result{}, err
+			}
+		}
+	}
 
 	return ctrl.Result{}, nil
 }
@@ -83,4 +98,23 @@ func (r *HorizontalPodAutoscalerXReconciler) getHPA(ctx context.Context, hpax *a
 		return nil, err
 	}
 	return hpa, nil
+}
+
+func (r *HorizontalPodAutoscalerXReconciler) getScalingActiveCondition(hpa *autoscalingv2.HorizontalPodAutoscaler) corev1.ConditionStatus {
+	for _, condition := range hpa.Status.Conditions {
+		if condition.Type == autoscalingv2.ScalingActive {
+			return condition.Status
+		}
+	}
+	return corev1.ConditionUnknown
+}
+
+func (r *HorizontalPodAutoscalerXReconciler) getConditionSince(hpax *autoscalingxv1.HorizontalPodAutoscalerX, curCondition corev1.ConditionStatus) *metav1.Time {
+	if hpax.Status.ScalingActiveCondition == curCondition {
+		return hpax.Status.ScalingActiveConditionSince
+	}
+	return &metav1.Time{
+		// TODO: use r.Clock.Now() instead of metav1.Now() so we can test it
+		Time: metav1.Now().Time,
+	}
 }
