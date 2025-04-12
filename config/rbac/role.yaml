@@ -5,6 +5,23 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
+  - autoscaling
+  resources:
+  - horizontalpodautoscalers
+  verbs:
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - autoscaling
+  resources:
+  - horizontalpodautoscalers/status
+  verbs:
+  - get
+- apiGroups:
   - autoscalingx.rrethy.io
   resources:
   - horizontalpodautoscalerxes
