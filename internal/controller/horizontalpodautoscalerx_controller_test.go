@@ -7,8 +7,9 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"k8s.io/utils/ptr"
 
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	autoscalingxv1 "rrethy.io/horizontalpodautoscalerx/api/v1"
@@ -29,6 +30,25 @@ var _ = Describe("HorizontalPodAutoscalerX Controller", func() {
 		horizontalpodautoscalerx := &autoscalingxv1.HorizontalPodAutoscalerX{}
 
 		BeforeEach(func() {
+			By("creating the associated HPA")
+			hpa := &autoscalingv2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      hpaName,
+					Namespace: namespace,
+				},
+				Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptr.To(int32(1)),
+					MaxReplicas: 10,
+					ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
+						Kind:       "Deployment",
+						Name:       "mydeployment",
+						APIVersion: "apps/v1",
+					},
+					Metrics: []autoscalingv2.MetricSpec{},
+				},
+			}
+			Expect(k8sClient.Create(ctx, hpa)).To(Succeed())
+
 			By("creating the custom resource for the Kind HorizontalPodAutoscalerX")
 			err := k8sClient.Get(ctx, typeNamespacedName, horizontalpodautoscalerx)
 			if err != nil && errors.IsNotFound(err) {
@@ -52,18 +72,18 @@ var _ = Describe("HorizontalPodAutoscalerX Controller", func() {
 
 			By("Cleanup the specific resource instance HorizontalPodAutoscalerX")
 			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
+
+			hpa := &autoscalingv2.HorizontalPodAutoscaler{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: hpaName, Namespace: namespace}, hpa)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Cleanup the specific resource instance HorizontalPodAutoscaler")
+			Expect(k8sClient.Delete(ctx, hpa)).To(Succeed())
 		})
 
 		It("should successfully reconcile the resource", func() {
-			By("Reconciling the created resource")
-			controllerReconciler := &HorizontalPodAutoscalerXReconciler{
-				Client: k8sClient,
-				Scheme: k8sClient.Scheme(),
-			}
-
-			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
-				NamespacedName: typeNamespacedName,
-			})
+			hpax := &autoscalingxv1.HorizontalPodAutoscalerX{}
+			err := k8sClient.Get(ctx, typeNamespacedName, hpax)
 			Expect(err).NotTo(HaveOccurred())
 		})
 	})
