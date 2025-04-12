@@ -79,6 +79,15 @@ spec:
           status:
             description: HorizontalPodAutoscalerXStatus defines the observed state
               of HorizontalPodAutoscalerX.
+            properties:
+              scalingActiveCondition:
+                description: ScalingActiveCondition is the last observed scaling condition.
+                type: string
+              scalingActiveConditionSince:
+                description: ScalingActiveConditionSince is the time when the scaling
+                  condition was last observed.
+                format: date-time
+                type: string
             type: object
         type: object
     served: true

@@ -1,6 +1,7 @@
 package v1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -32,7 +33,15 @@ type HorizontalPodAutoscalerXSpec struct {
 }
 
 // HorizontalPodAutoscalerXStatus defines the observed state of HorizontalPodAutoscalerX.
-type HorizontalPodAutoscalerXStatus struct{}
+type HorizontalPodAutoscalerXStatus struct {
+	// ScalingActiveConditionSince is the time when the scaling condition was last observed.
+	// +kubebuilder:validation:Optional
+	ScalingActiveConditionSince *metav1.Time `json:"scalingActiveConditionSince,omitempty"`
+
+	// ScalingActiveCondition is the last observed scaling condition.
+	// +kubebuilder:validation:Optional
+	ScalingActiveCondition corev1.ConditionStatus `json:"scalingActiveCondition,omitempty"`
+}
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
