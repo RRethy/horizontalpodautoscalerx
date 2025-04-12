@@ -53,10 +53,14 @@ func (r *HorizontalPodAutoscalerXReconciler) Reconcile(ctx context.Context, hpax
 		}, nil
 	}
 
+	orig := hpax.DeepCopy()
+
 	defer func() {
-		err := r.Status().Update(ctx, hpax)
-		if err != nil {
-			log.Error(err, "updating status")
+		if orig.Status != hpax.Status {
+			err := r.Status().Update(ctx, hpax)
+			if err != nil {
+				log.Error(err, "updating status")
+			}
 		}
 	}()
 
