@@ -70,16 +70,16 @@ func (r *HorizontalPodAutoscalerXReconciler) Reconcile(ctx context.Context, hpax
 	hpax.Status.ScalingActiveCondition = curCondition
 	hpax.Status.ScalingActiveConditionSince = since
 
-	if curCondition == corev1.ConditionFalse && r.Clock.Now().Sub(since.Time) > hpax.Spec.Fallback.Duration.Duration {
-		if hpax.Spec.Fallback != nil {
-			hpa.Spec.MinReplicas = &hpax.Spec.Fallback.Replicas
-			err := r.Update(ctx, hpa)
-			if err != nil {
-				log.Error(err, "updating HPA")
-				return ctrl.Result{}, err
-			}
-		}
-	}
+	// if curCondition == corev1.ConditionFalse && r.Clock.Now().Sub(since.Time) > hpax.Spec.Fallback.Duration.Duration {
+	// 	if hpax.Spec.Fallback != nil {
+	// 		hpa.Spec.MinReplicas = &hpax.Spec.Fallback.Replicas
+	// 		err := r.Update(ctx, hpa)
+	// 		if err != nil {
+	// 			log.Error(err, "updating HPA")
+	// 			return ctrl.Result{}, err
+	// 		}
+	// 	}
+	// }
 
 	return ctrl.Result{}, nil
 }
@@ -87,8 +87,8 @@ func (r *HorizontalPodAutoscalerXReconciler) Reconcile(ctx context.Context, hpax
 // SetupWithManager sets up the controller with the Manager.
 func (r *HorizontalPodAutoscalerXReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&autoscalingxv1.HorizontalPodAutoscalerX{}).
 		Named(ControllerName).
+		For(&autoscalingxv1.HorizontalPodAutoscalerX{}).
 		WithEventFilter(predicate.Or(predicate.GenerationChangedPredicate{}, predicate.AnnotationChangedPredicate{})).
 		Complete(reconcile.AsReconciler(mgr.GetClient(), r))
 }
