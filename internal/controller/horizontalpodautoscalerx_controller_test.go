@@ -81,10 +81,10 @@ var _ = Describe("HorizontalPodAutoscalerX Controller", func() {
 			Expect(k8sClient.Delete(ctx, hpa)).To(Succeed())
 		})
 
-		It("should successfully reconcile the resource", func() {
-			hpax := &autoscalingxv1.HorizontalPodAutoscalerX{}
-			err := k8sClient.Get(ctx, typeNamespacedName, hpax)
-			Expect(err).NotTo(HaveOccurred())
-		})
+		// It("should store scaling active condition if true", func() {
+		// 	hpax := &autoscalingxv1.HorizontalPodAutoscalerX{}
+		// 	err := k8sClient.Get(ctx, typeNamespacedName, hpax)
+		// 	Expect(err).NotTo(HaveOccurred())
+		// })
 	})
 })

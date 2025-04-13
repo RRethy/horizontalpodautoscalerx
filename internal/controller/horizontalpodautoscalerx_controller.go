@@ -7,6 +7,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/clock"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -24,6 +25,7 @@ const (
 type HorizontalPodAutoscalerXReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+	Clock  clock.Clock
 }
 
 // +kubebuilder:rbac:groups=autoscalingx.rrethy.io,resources=horizontalpodautoscalerxes,verbs=get;list;watch;create;update;patch;delete
@@ -68,7 +70,7 @@ func (r *HorizontalPodAutoscalerXReconciler) Reconcile(ctx context.Context, hpax
 	hpax.Status.ScalingActiveCondition = curCondition
 	hpax.Status.ScalingActiveConditionSince = since
 
-	if curCondition == corev1.ConditionFalse && metav1.Now().Sub(since.Time) > hpax.Spec.Fallback.Duration.Duration {
+	if curCondition == corev1.ConditionFalse && r.Clock.Now().Sub(since.Time) > hpax.Spec.Fallback.Duration.Duration {
 		if hpax.Spec.Fallback != nil {
 			hpa.Spec.MinReplicas = &hpax.Spec.Fallback.Replicas
 			err := r.Update(ctx, hpa)
@@ -113,8 +115,5 @@ func (r *HorizontalPodAutoscalerXReconciler) getConditionSince(hpax *autoscaling
 	if hpax.Status.ScalingActiveCondition == curCondition {
 		return hpax.Status.ScalingActiveConditionSince
 	}
-	return &metav1.Time{
-		// TODO: use r.Clock.Now() instead of metav1.Now() so we can test it
-		Time: metav1.Now().Time,
-	}
+	return &metav1.Time{Time: r.Clock.Now()}
 }
