@@ -19,6 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	autoscalingxv1 "rrethy.io/horizontalpodautoscalerx/api/v1"
+	custompredicate "rrethy.io/horizontalpodautoscalerx/internal/predicate"
 )
 
 const (
@@ -104,7 +105,10 @@ func (r *HorizontalPodAutoscalerXReconciler) SetupWithManager(mgr ctrl.Manager) 
 		Watches(
 			&autoscalingv2.HorizontalPodAutoscaler{},
 			handler.EnqueueRequestsFromMapFunc(r.findHPAXForHPA),
-			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+			builder.WithPredicates(predicate.Or(
+				custompredicate.HPAScalingActiveChangedPredicate{},
+				custompredicate.HPAMinReplicasChangedPredicate{},
+			)),
 		).
 		Complete(reconcile.AsReconciler(mgr.GetClient(), r))
 }
