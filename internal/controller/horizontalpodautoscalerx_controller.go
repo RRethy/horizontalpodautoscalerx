@@ -89,6 +89,7 @@ func (r *HorizontalPodAutoscalerXReconciler) SetupWithManager(mgr ctrl.Manager) 
 	return ctrl.NewControllerManagedBy(mgr).
 		Named(ControllerName).
 		For(&autoscalingxv1.HorizontalPodAutoscalerX{}).
+		// TODO: setup watches for hpa and figure out how to watch updates to hpa status
 		WithEventFilter(predicate.Or(predicate.GenerationChangedPredicate{}, predicate.AnnotationChangedPredicate{})).
 		Complete(reconcile.AsReconciler(mgr.GetClient(), r))
 }

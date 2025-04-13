@@ -76,10 +76,15 @@ var _ = Describe("HorizontalPodAutoscalerX Controller", func() {
 
 			By("updating the hpa status to have scaling active condition as true")
 			hpa.Status.Conditions = []autoscalingv2.HorizontalPodAutoscalerCondition{
-				{Type: autoscalingv2.ScalingActive, Status: corev1.ConditionTrue},
-				{Type: autoscalingv2.AbleToScale, Status: corev1.ConditionFalse},
+				{Type: autoscalingv2.ScalingActive, Status: corev1.ConditionFalse},
+				{Type: autoscalingv2.AbleToScale, Status: corev1.ConditionTrue},
 			}
 			Expect(k8sClient.Status().Update(ctx, hpa)).To(Succeed())
+
+			hpax := &autoscalingxv1.HorizontalPodAutoscalerX{}
+			Expect(k8sClient.Get(ctx, hpaxNamespacedName, hpax)).To(Succeed())
+			hpax.Annotations = map[string]string{"touch": "true"}
+			Expect(k8sClient.Update(ctx, hpax)).To(Succeed())
 
 			By("getting the hpax to check the status eventually has been updated")
 			Eventually(func() error {
@@ -88,8 +93,8 @@ var _ = Describe("HorizontalPodAutoscalerX Controller", func() {
 				if err != nil {
 					return err
 				}
-				if hpax.Status.ScalingActiveCondition != corev1.ConditionTrue {
-					return fmt.Errorf("expected scaling active condition to be true but got %s", hpax.Status.ScalingActiveCondition)
+				if hpax.Status.ScalingActiveCondition != corev1.ConditionFalse {
+					return fmt.Errorf("expected scaling active condition to be false but got %s", hpax.Status.ScalingActiveCondition)
 				}
 				conditionSince := hpax.Status.ScalingActiveConditionSince
 				if !conditionSince.Equal(&metav1.Time{Time: fakeclock.Now()}) {
@@ -110,6 +115,11 @@ var _ = Describe("HorizontalPodAutoscalerX Controller", func() {
 				{Type: autoscalingv2.AbleToScale, Status: corev1.ConditionFalse},
 			}
 			Expect(k8sClient.Status().Update(ctx, hpa)).To(Succeed())
+
+			hpax := &autoscalingxv1.HorizontalPodAutoscalerX{}
+			Expect(k8sClient.Get(ctx, hpaxNamespacedName, hpax)).To(Succeed())
+			hpax.Annotations = map[string]string{"touch": "true"}
+			Expect(k8sClient.Update(ctx, hpax)).To(Succeed())
 
 			By("getting the hpax to check the status eventually has been updated")
 			Eventually(func() error {
