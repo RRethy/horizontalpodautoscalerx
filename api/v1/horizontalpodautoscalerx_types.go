@@ -6,12 +6,12 @@ import (
 )
 
 type Fallback struct {
-	// Replicas is the number of replicas to fallback to. The is manifested as
+	// MinReplicas is the minReplicas to fallback to. The is manifested as
 	// patching the HorizontalPodAutoscaler.spec.minReplicas.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Default=1
-	Replicas int32 `json:"replicas,omitempty"`
+	MinReplicas int32 `json:"minReplicas,omitempty"`
 
 	// Duration is the minimum duration to observe a failing condition on the
 	// HPA before triggering a fallback.
@@ -30,6 +30,12 @@ type HorizontalPodAutoscalerXSpec struct {
 	// Fallback defines the fallback behavior.
 	// +kubebuilder:validation:Optional
 	Fallback *Fallback `json:"fallback,omitempty"`
+
+	// MinReplicas is the minReplicas for the HPA.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Default=1
+	MinReplicas int32 `json:"minReplicas,omitempty"`
 }
 
 // HorizontalPodAutoscalerXStatus defines the observed state of HorizontalPodAutoscalerX.

@@ -5,7 +5,6 @@ import (
 
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -70,10 +69,13 @@ func (r *HorizontalPodAutoscalerXReconciler) Reconcile(ctx context.Context, hpax
 		}
 	}()
 
-	curCondition := r.getScalingActiveCondition(hpa)
-	since := r.getConditionSince(hpax, curCondition)
-	hpax.Status.ScalingActiveCondition = curCondition
-	hpax.Status.ScalingActiveConditionSince = since
+	scalingActiveCondition := r.getScalingActiveCondition(hpa)
+	minReplicas := r.getDesiredMinReplicas(hpax, scalingActiveCondition)
+	err = r.updateHpaMinReplicas(ctx, hpa, minReplicas)
+	if err != nil {
+		log.Error(err, "updating HPA minReplicas")
+		return ctrl.Result{}, err
+	}
 
 	return ctrl.Result{}, nil
 }
@@ -151,19 +153,32 @@ func (r *HorizontalPodAutoscalerXReconciler) getHPA(ctx context.Context, hpax *a
 }
 
 // getScalingActiveCondition retrieves the ScalingActive condition from the HPA status.
-func (r *HorizontalPodAutoscalerXReconciler) getScalingActiveCondition(hpa *autoscalingv2.HorizontalPodAutoscaler) corev1.ConditionStatus {
+func (r *HorizontalPodAutoscalerXReconciler) getScalingActiveCondition(hpa *autoscalingv2.HorizontalPodAutoscaler) *autoscalingv2.HorizontalPodAutoscalerCondition {
 	for _, condition := range hpa.Status.Conditions {
 		if condition.Type == autoscalingv2.ScalingActive {
-			return condition.Status
+			return &condition
 		}
 	}
-	return corev1.ConditionUnknown
+	return nil
 }
 
-// getConditionSince retrieves the time since the ScalingActive condition was last updated.
-func (r *HorizontalPodAutoscalerXReconciler) getConditionSince(hpax *autoscalingxv1.HorizontalPodAutoscalerX, curCondition corev1.ConditionStatus) *metav1.Time {
-	if hpax.Status.ScalingActiveCondition == curCondition {
-		return hpax.Status.ScalingActiveConditionSince
+// getDesiredMinReplicas calculates the desired minReplicas based on the scaling condition and fallback settings.
+func (r *HorizontalPodAutoscalerXReconciler) getDesiredMinReplicas(hpax *autoscalingxv1.HorizontalPodAutoscalerX, scalingActiveCondition *autoscalingv2.HorizontalPodAutoscalerCondition) int32 {
+	if hpax.Spec.Fallback == nil ||
+		scalingActiveCondition == nil ||
+		scalingActiveCondition.Status == corev1.ConditionTrue ||
+		scalingActiveCondition.Status == corev1.ConditionUnknown ||
+		scalingActiveCondition.LastTransitionTime.Time.Add(hpax.Spec.Fallback.Duration.Duration).After(r.Clock.Now()) {
+		return hpax.Spec.MinReplicas
 	}
-	return &metav1.Time{Time: r.Clock.Now()}
+
+	return hpax.Spec.Fallback.MinReplicas
+}
+
+func (r *HorizontalPodAutoscalerXReconciler) updateHpaMinReplicas(ctx context.Context, hpa *autoscalingv2.HorizontalPodAutoscaler, minReplicas int32) error {
+	if hpa.Spec.MinReplicas != nil && minReplicas == *hpa.Spec.MinReplicas {
+		return nil
+	}
+	hpa.Spec.MinReplicas = &minReplicas
+	return r.Update(ctx, hpa)
 }

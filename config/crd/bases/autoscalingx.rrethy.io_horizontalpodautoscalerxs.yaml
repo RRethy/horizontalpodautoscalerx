@@ -58,23 +58,29 @@ spec:
                       Duration is the minimum duration to observe a failing condition on the
                       HPA before triggering a fallback.
                     type: string
-                  replicas:
+                  minReplicas:
                     description: |-
-                      Replicas is the number of replicas to fallback to. The is manifested as
+                      MinReplicas is the minReplicas to fallback to. The is manifested as
                       patching the HorizontalPodAutoscaler.spec.minReplicas.
                     format: int32
                     minimum: 0
                     type: integer
                 required:
-                - replicas
+                - minReplicas
                 type: object
               hpaTargetName:
                 description: HPATargetName is the name of the HorizontalPodAutoscaler
                   to scale.
                 minLength: 1
                 type: string
+              minReplicas:
+                description: MinReplicas is the minReplicas for the HPA.
+                format: int32
+                minimum: 0
+                type: integer
             required:
             - hpaTargetName
+            - minReplicas
             type: object
           status:
             description: HorizontalPodAutoscalerXStatus defines the observed state
