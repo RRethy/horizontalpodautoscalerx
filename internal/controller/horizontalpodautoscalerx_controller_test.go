@@ -81,10 +81,10 @@ var _ = Describe("HorizontalPodAutoscalerX Controller", func() {
 			}
 			Expect(k8sClient.Status().Update(ctx, hpa)).To(Succeed())
 
-			hpax := &autoscalingxv1.HorizontalPodAutoscalerX{}
-			Expect(k8sClient.Get(ctx, hpaxNamespacedName, hpax)).To(Succeed())
-			hpax.Annotations = map[string]string{"touch": "true"}
-			Expect(k8sClient.Update(ctx, hpax)).To(Succeed())
+			// hpax := &autoscalingxv1.HorizontalPodAutoscalerX{}
+			// Expect(k8sClient.Get(ctx, hpaxNamespacedName, hpax)).To(Succeed())
+			// hpax.Annotations = map[string]string{"touch": "true"}
+			// Expect(k8sClient.Update(ctx, hpax)).To(Succeed())
 
 			By("getting the hpax to check the status eventually has been updated")
 			Eventually(func() error {
@@ -116,10 +116,10 @@ var _ = Describe("HorizontalPodAutoscalerX Controller", func() {
 			}
 			Expect(k8sClient.Status().Update(ctx, hpa)).To(Succeed())
 
-			hpax := &autoscalingxv1.HorizontalPodAutoscalerX{}
-			Expect(k8sClient.Get(ctx, hpaxNamespacedName, hpax)).To(Succeed())
-			hpax.Annotations = map[string]string{"touch": "true"}
-			Expect(k8sClient.Update(ctx, hpax)).To(Succeed())
+			// hpax := &autoscalingxv1.HorizontalPodAutoscalerX{}
+			// Expect(k8sClient.Get(ctx, hpaxNamespacedName, hpax)).To(Succeed())
+			// hpax.Annotations = map[string]string{"touch": "true"}
+			// Expect(k8sClient.Update(ctx, hpax)).To(Succeed())
 
 			By("getting the hpax to check the status eventually has been updated")
 			Eventually(func() error {

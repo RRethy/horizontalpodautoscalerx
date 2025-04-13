@@ -6,10 +6,14 @@ import (
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/clock"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -70,28 +74,65 @@ func (r *HorizontalPodAutoscalerXReconciler) Reconcile(ctx context.Context, hpax
 	hpax.Status.ScalingActiveCondition = curCondition
 	hpax.Status.ScalingActiveConditionSince = since
 
-	// if curCondition == corev1.ConditionFalse && r.Clock.Now().Sub(since.Time) > hpax.Spec.Fallback.Duration.Duration {
-	// 	if hpax.Spec.Fallback != nil {
-	// 		hpa.Spec.MinReplicas = &hpax.Spec.Fallback.Replicas
-	// 		err := r.Update(ctx, hpa)
-	// 		if err != nil {
-	// 			log.Error(err, "updating HPA")
-	// 			return ctrl.Result{}, err
-	// 		}
-	// 	}
-	// }
-
 	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *HorizontalPodAutoscalerXReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if r.Clock == nil {
+		r.Clock = clock.RealClock{}
+	}
+
+	// Create an index for hpax.spec.hpaTargetName so we can find the hpax that targets a given hpa.
+	err := mgr.GetFieldIndexer().IndexField(
+		context.Background(),
+		&autoscalingxv1.HorizontalPodAutoscalerX{},
+		"spec.hpaTargetName",
+		func(obj client.Object) []string {
+			return []string{obj.(*autoscalingxv1.HorizontalPodAutoscalerX).Spec.HPATargetName}
+		})
+	if err != nil {
+		return err
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		Named(ControllerName).
-		For(&autoscalingxv1.HorizontalPodAutoscalerX{}).
-		// TODO: setup watches for hpa and figure out how to watch updates to hpa status
-		WithEventFilter(predicate.Or(predicate.GenerationChangedPredicate{}, predicate.AnnotationChangedPredicate{})).
+		For(
+			&autoscalingxv1.HorizontalPodAutoscalerX{},
+			builder.WithPredicates(predicate.GenerationChangedPredicate{}, predicate.AnnotationChangedPredicate{}),
+		).
+		Watches(
+			&autoscalingv2.HorizontalPodAutoscaler{},
+			handler.EnqueueRequestsFromMapFunc(r.findHPAXForHPA),
+			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+		).
 		Complete(reconcile.AsReconciler(mgr.GetClient(), r))
+}
+
+func (r *HorizontalPodAutoscalerXReconciler) findHPAXForHPA(ctx context.Context, o client.Object) []reconcile.Request {
+	hpa, ok := o.(*autoscalingv2.HorizontalPodAutoscaler)
+	if !ok {
+		return nil
+	}
+
+	hpaxList := &autoscalingxv1.HorizontalPodAutoscalerXList{}
+	if err := r.List(ctx, hpaxList, &client.ListOptions{
+		Namespace:     hpa.GetNamespace(),
+		FieldSelector: fields.OneTermEqualSelector("spec.hpaTargetName", hpa.GetName()),
+	}); err != nil {
+		return nil
+	}
+
+	var requests []reconcile.Request
+	for _, hpax := range hpaxList.Items {
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      hpax.GetName(),
+				Namespace: hpax.GetNamespace(),
+			},
+		})
+	}
+	return requests
 }
 
 func (r *HorizontalPodAutoscalerXReconciler) getHPA(ctx context.Context, hpax *autoscalingxv1.HorizontalPodAutoscalerX) (*autoscalingv2.HorizontalPodAutoscaler, error) {
