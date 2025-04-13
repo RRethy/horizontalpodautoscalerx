@@ -2,6 +2,8 @@ package controller
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -10,9 +12,15 @@ import (
 	"k8s.io/utils/ptr"
 
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	autoscalingxv1 "rrethy.io/horizontalpodautoscalerx/api/v1"
+)
+
+const (
+	eventuallyTimeout = 2 * time.Second
+	interval          = 250 * time.Millisecond
 )
 
 var _ = Describe("HorizontalPodAutoscalerX Controller", func() {
@@ -81,10 +89,40 @@ var _ = Describe("HorizontalPodAutoscalerX Controller", func() {
 			Expect(k8sClient.Delete(ctx, hpa)).To(Succeed())
 		})
 
-		// It("should store scaling active condition if true", func() {
-		// 	hpax := &autoscalingxv1.HorizontalPodAutoscalerX{}
-		// 	err := k8sClient.Get(ctx, typeNamespacedName, hpax)
-		// 	Expect(err).NotTo(HaveOccurred())
-		// })
+		It("should store scaling active condition if true", func() {
+			By("getting the hpa")
+			hpa := &autoscalingv2.HorizontalPodAutoscaler{}
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: hpaName, Namespace: namespace}, hpa)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("updating the hpa status to have scaling active condition as true")
+			hpa.Status.Conditions = []autoscalingv2.HorizontalPodAutoscalerCondition{
+				{
+					Type:   autoscalingv2.ScalingActive,
+					Status: corev1.ConditionTrue,
+				},
+				{
+					Type:   autoscalingv2.AbleToScale,
+					Status: corev1.ConditionFalse,
+				},
+			}
+			err = k8sClient.Status().Update(ctx, hpa)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("getting the hpax to check the status eventually has been updated")
+			Eventually(func() error {
+				err := k8sClient.Get(ctx, typeNamespacedName, horizontalpodautoscalerx)
+				if err != nil {
+					return err
+				}
+				if horizontalpodautoscalerx.Status.ScalingActiveCondition != corev1.ConditionTrue {
+					return fmt.Errorf("expected scaling active condition to be true")
+				}
+				conditionSince := horizontalpodautoscalerx.Status.ScalingActiveConditionSince
+				if conditionSince.Equal(&metav1.Time{Time: fakeclock.Now()}) {
+				}
+				return nil
+			}).Should(BeNil())
+		})
 	})
 })
