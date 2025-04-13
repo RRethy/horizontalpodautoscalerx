@@ -2,13 +2,11 @@ package controller
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/ptr"
 
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
@@ -18,11 +16,15 @@ import (
 )
 
 const (
-	eventuallyTimeout = 2 * time.Second
-	interval          = 250 * time.Millisecond
-	namespace         = "default"
-	hpaxName          = "myhpax"
-	hpaName           = "myhpa"
+	eventuallyTimeout   = 2 * time.Second
+	consistentlyTimeout = 4 * time.Second
+	interval            = 250 * time.Millisecond
+	namespace           = "default"
+	hpaxName            = "myhpax"
+	hpaName             = "myhpa"
+	fallbackDuration    = 5 * time.Second
+	minReplicas         = 1
+	fallbackMinReplicas = 10
 )
 
 var (
@@ -30,14 +32,19 @@ var (
 	hpaNamespacedName  = types.NamespacedName{Name: hpaName, Namespace: namespace}
 	defaultHpax        = &autoscalingxv1.HorizontalPodAutoscalerX{
 		ObjectMeta: metav1.ObjectMeta{Name: hpaxName, Namespace: namespace},
-		Spec:       autoscalingxv1.HorizontalPodAutoscalerXSpec{HPATargetName: hpaName},
-		Status:     autoscalingxv1.HorizontalPodAutoscalerXStatus{},
+		Spec: autoscalingxv1.HorizontalPodAutoscalerXSpec{
+			HPATargetName: hpaName,
+			Fallback: &autoscalingxv1.Fallback{
+				MinReplicas: fallbackMinReplicas,
+				Duration:    metav1.Duration{Duration: fallbackDuration},
+			},
+			MinReplicas: minReplicas,
+		},
 	}
 	defaultHpa = &autoscalingv2.HorizontalPodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{Name: hpaName, Namespace: namespace},
 		Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
-			MinReplicas: ptr.To(int32(1)),
-			MaxReplicas: 10,
+			MaxReplicas: fallbackMinReplicas + 1,
 			ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
 				Kind:       "Deployment",
 				Name:       "mydeployment",
@@ -45,7 +52,6 @@ var (
 			},
 			Metrics: []autoscalingv2.MetricSpec{},
 		},
-		Status: autoscalingv2.HorizontalPodAutoscalerStatus{},
 	}
 )
 
@@ -59,6 +65,16 @@ var _ = Describe("HorizontalPodAutoscalerX Controller", func() {
 
 			By("creating the custom resource for the Kind HorizontalPodAutoscalerX")
 			Expect(k8sClient.Create(ctx, defaultHpax.DeepCopy())).To(Succeed())
+
+			By("waiting for the HPA to get minReplicas updated")
+			Eventually(func() int32 {
+				hpa := &autoscalingv2.HorizontalPodAutoscaler{}
+				Expect(k8sClient.Get(ctx, hpaNamespacedName, hpa)).To(Succeed())
+				if hpa.Spec.MinReplicas != nil {
+					return *hpa.Spec.MinReplicas
+				}
+				return -1
+			}, eventuallyTimeout, interval).Should(Equal(int32(minReplicas)))
 		})
 
 		AfterEach(func() {
@@ -69,74 +85,68 @@ var _ = Describe("HorizontalPodAutoscalerX Controller", func() {
 			Expect(k8sClient.Delete(ctx, defaultHpa)).To(Succeed())
 		})
 
-		It("should store scaling active condition if false", func() {
+		It("should not update minReplicas if scaling active condition is true for short time", func() {
 			By("getting the hpa")
 			hpa := &autoscalingv2.HorizontalPodAutoscaler{}
 			Expect(k8sClient.Get(ctx, hpaNamespacedName, hpa)).To(Succeed())
 
-			By("updating the hpa status to have scaling active condition as true")
+			By("updating the hpa status to have scaling active condition as true more recently than fallback duration")
 			hpa.Status.Conditions = []autoscalingv2.HorizontalPodAutoscalerCondition{
-				{Type: autoscalingv2.ScalingActive, Status: corev1.ConditionFalse},
-				{Type: autoscalingv2.AbleToScale, Status: corev1.ConditionTrue},
+				{
+					Type:               autoscalingv2.ScalingActive,
+					Status:             corev1.ConditionTrue,
+					LastTransitionTime: metav1.Time{Time: fakeclock.Now().Add(-fallbackDuration).Add(1 * time.Second)},
+				},
+				{
+					Type:               autoscalingv2.AbleToScale,
+					Status:             corev1.ConditionFalse,
+					LastTransitionTime: metav1.Time{Time: fakeclock.Now().Add(-fallbackDuration).Add(-1 * time.Second)},
+				},
 			}
 			Expect(k8sClient.Status().Update(ctx, hpa)).To(Succeed())
 
-			// hpax := &autoscalingxv1.HorizontalPodAutoscalerX{}
-			// Expect(k8sClient.Get(ctx, hpaxNamespacedName, hpax)).To(Succeed())
-			// hpax.Annotations = map[string]string{"touch": "true"}
-			// Expect(k8sClient.Update(ctx, hpax)).To(Succeed())
+			By("getting the hpa to check if minReplicas is not updated")
+			Consistently(func() int32 {
+				hpa := &autoscalingv2.HorizontalPodAutoscaler{}
+				Expect(k8sClient.Get(ctx, hpaNamespacedName, hpa)).To(Succeed())
 
-			By("getting the hpax to check the status eventually has been updated")
-			Eventually(func() error {
-				hpax := &autoscalingxv1.HorizontalPodAutoscalerX{}
-				err := k8sClient.Get(ctx, hpaxNamespacedName, hpax)
-				if err != nil {
-					return err
+				if hpa.Spec.MinReplicas != nil {
+					return *hpa.Spec.MinReplicas
 				}
-				if hpax.Status.ScalingActiveCondition != corev1.ConditionFalse {
-					return fmt.Errorf("expected scaling active condition to be false but got %s", hpax.Status.ScalingActiveCondition)
-				}
-				conditionSince := hpax.Status.ScalingActiveConditionSince
-				if !conditionSince.Equal(&metav1.Time{Time: fakeclock.Now()}) {
-					return fmt.Errorf("expected condition since to be %s but got %s", fakeclock.Now(), conditionSince)
-				}
-				return nil
-			}, eventuallyTimeout, interval).Should(BeNil())
+				return -1
+			}, consistentlyTimeout, interval).Should(Equal(int32(minReplicas)))
 		})
 
-		It("should store scaling active condition if true", func() {
+		It("should not update minReplicas if scaling active condition is true for long time", func() {
 			By("getting the hpa")
 			hpa := &autoscalingv2.HorizontalPodAutoscaler{}
 			Expect(k8sClient.Get(ctx, hpaNamespacedName, hpa)).To(Succeed())
 
-			By("updating the hpa status to have scaling active condition as true")
+			By("updating the hpa status to have scaling active condition as true more recently than fallback duration")
 			hpa.Status.Conditions = []autoscalingv2.HorizontalPodAutoscalerCondition{
-				{Type: autoscalingv2.ScalingActive, Status: corev1.ConditionTrue},
-				{Type: autoscalingv2.AbleToScale, Status: corev1.ConditionFalse},
+				{
+					Type:               autoscalingv2.ScalingActive,
+					Status:             corev1.ConditionTrue,
+					LastTransitionTime: metav1.Time{Time: fakeclock.Now().Add(-fallbackDuration).Add(-1 * time.Second)},
+				},
+				{
+					Type:               autoscalingv2.AbleToScale,
+					Status:             corev1.ConditionFalse,
+					LastTransitionTime: metav1.Time{Time: fakeclock.Now().Add(-fallbackDuration).Add(-1 * time.Second)},
+				},
 			}
 			Expect(k8sClient.Status().Update(ctx, hpa)).To(Succeed())
 
-			// hpax := &autoscalingxv1.HorizontalPodAutoscalerX{}
-			// Expect(k8sClient.Get(ctx, hpaxNamespacedName, hpax)).To(Succeed())
-			// hpax.Annotations = map[string]string{"touch": "true"}
-			// Expect(k8sClient.Update(ctx, hpax)).To(Succeed())
+			By("getting the hpa to check if minReplicas is not updated")
+			Consistently(func() int32 {
+				hpa := &autoscalingv2.HorizontalPodAutoscaler{}
+				Expect(k8sClient.Get(ctx, hpaNamespacedName, hpa)).To(Succeed())
 
-			By("getting the hpax to check the status eventually has been updated")
-			Eventually(func() error {
-				hpax := &autoscalingxv1.HorizontalPodAutoscalerX{}
-				err := k8sClient.Get(ctx, hpaxNamespacedName, hpax)
-				if err != nil {
-					return err
+				if hpa.Spec.MinReplicas != nil {
+					return *hpa.Spec.MinReplicas
 				}
-				if hpax.Status.ScalingActiveCondition != corev1.ConditionTrue {
-					return fmt.Errorf("expected scaling active condition to be true but got %s", hpax.Status.ScalingActiveCondition)
-				}
-				conditionSince := hpax.Status.ScalingActiveConditionSince
-				if !conditionSince.Equal(&metav1.Time{Time: fakeclock.Now()}) {
-					return fmt.Errorf("expected condition since to be %s but got %s", fakeclock.Now(), conditionSince)
-				}
-				return nil
-			}, eventuallyTimeout, interval).Should(BeNil())
+				return -1
+			}, consistentlyTimeout, interval).Should(Equal(int32(minReplicas)))
 		})
 	})
 })
