@@ -113,6 +113,7 @@ func (r *HorizontalPodAutoscalerXReconciler) SetupWithManager(mgr ctrl.Manager) 
 		Complete(reconcile.AsReconciler(mgr.GetClient(), r))
 }
 
+// findHPAXForHPA finds all HorizontalPodAutoscalerX objects that target the given HPA.
 func (r *HorizontalPodAutoscalerXReconciler) findHPAXForHPA(ctx context.Context, o client.Object) []reconcile.Request {
 	hpa, ok := o.(*autoscalingv2.HorizontalPodAutoscaler)
 	if !ok {
@@ -139,6 +140,7 @@ func (r *HorizontalPodAutoscalerXReconciler) findHPAXForHPA(ctx context.Context,
 	return requests
 }
 
+// getHPA retrieves the HorizontalPodAutoscaler object associated with the given HorizontalPodAutoscalerX.
 func (r *HorizontalPodAutoscalerXReconciler) getHPA(ctx context.Context, hpax *autoscalingxv1.HorizontalPodAutoscalerX) (*autoscalingv2.HorizontalPodAutoscaler, error) {
 	hpa := &autoscalingv2.HorizontalPodAutoscaler{}
 	err := r.Get(ctx, client.ObjectKey{Name: hpax.Spec.HPATargetName, Namespace: hpax.Namespace}, hpa)
@@ -148,6 +150,7 @@ func (r *HorizontalPodAutoscalerXReconciler) getHPA(ctx context.Context, hpax *a
 	return hpa, nil
 }
 
+// getScalingActiveCondition retrieves the ScalingActive condition from the HPA status.
 func (r *HorizontalPodAutoscalerXReconciler) getScalingActiveCondition(hpa *autoscalingv2.HorizontalPodAutoscaler) corev1.ConditionStatus {
 	for _, condition := range hpa.Status.Conditions {
 		if condition.Type == autoscalingv2.ScalingActive {
@@ -157,6 +160,7 @@ func (r *HorizontalPodAutoscalerXReconciler) getScalingActiveCondition(hpa *auto
 	return corev1.ConditionUnknown
 }
 
+// getConditionSince retrieves the time since the ScalingActive condition was last updated.
 func (r *HorizontalPodAutoscalerXReconciler) getConditionSince(hpax *autoscalingxv1.HorizontalPodAutoscalerX, curCondition corev1.ConditionStatus) *metav1.Time {
 	if hpax.Status.ScalingActiveCondition == curCondition {
 		return hpax.Status.ScalingActiveConditionSince
