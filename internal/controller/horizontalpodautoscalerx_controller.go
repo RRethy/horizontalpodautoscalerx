@@ -2,13 +2,17 @@ package controller
 
 import (
 	"context"
+	"fmt"
 
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/clock"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -44,39 +48,41 @@ type HorizontalPodAutoscalerXReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.18.2/pkg/reconcile
 // This Reconcile method uses the ObjectReconciler interface from https://github.com/kubernetes-sigs/controller-runtime/pull/2592.
-func (r *HorizontalPodAutoscalerXReconciler) Reconcile(ctx context.Context, hpax *autoscalingxv1.HorizontalPodAutoscalerX) (ctrl.Result, error) {
-	log := log.FromContext(ctx)
-
+func (r *HorizontalPodAutoscalerXReconciler) Reconcile(ctx context.Context, hpax *autoscalingxv1.HorizontalPodAutoscalerX) (res ctrl.Result, retErr error) {
 	if !hpax.DeletionTimestamp.IsZero() {
 		// The object is being deleted, don't do anything.
 		return ctrl.Result{}, nil
 	}
 
-	hpa, err := r.getHPA(ctx, hpax)
-	if err != nil {
-		log.Error(err, "getting associated HPA")
-		return ctrl.Result{Requeue: true}, nil
-	}
-
+	log := log.FromContext(ctx)
 	orig := hpax.DeepCopy()
-
 	defer func() {
-		if orig.Status != hpax.Status {
-			err := r.Status().Update(ctx, hpax)
-			if err != nil {
+		// we don't even need to do this really, we're always updating the status
+		if !apiequality.Semantic.DeepEqual(orig, hpax) {
+			if err := r.Status().Update(ctx, hpax); err != nil {
 				log.Error(err, "updating status")
+				if retErr == nil {
+					retErr = fmt.Errorf("updating status: %w", err)
+				}
 			}
 		}
 	}()
 
-	scalingActiveCondition := r.getScalingActiveCondition(hpa)
-	minReplicas := r.getDesiredMinReplicas(hpax, scalingActiveCondition)
-	err = r.updateHpaMinReplicas(ctx, hpa, minReplicas)
+	hpax.Status.ObservedGeneration = ptr.To(hpax.Generation)
+
+	hpa, err := r.getHPA(ctx, hpax)
 	if err != nil {
-		log.Error(err, "updating HPA minReplicas")
-		return ctrl.Result{}, err
+		log.Error(err, "getting HPA")
+		return ctrl.Result{}, fmt.Errorf("getting HPA: %w", err)
 	}
 
+	err = r.updateHpaMinReplicas(ctx, hpax, hpa)
+	if err != nil {
+		log.Error(err, "updating HPA spec.minReplicas")
+		return ctrl.Result{}, fmt.Errorf("updating HPA spec.minReplicas: %w", err)
+	}
+
+	r.setCondition(hpax, autoscalingxv1.ConditionReady, corev1.ConditionTrue, "HPAUpdated", "updated the minReplicas of the hpa")
 	return ctrl.Result{}, nil
 }
 
@@ -115,6 +121,43 @@ func (r *HorizontalPodAutoscalerXReconciler) SetupWithManager(mgr ctrl.Manager) 
 		Complete(reconcile.AsReconciler(mgr.GetClient(), r))
 }
 
+// setCondition sets the condition of the HorizontalPodAutoscalerX.
+func (r *HorizontalPodAutoscalerXReconciler) setCondition(
+	hpax *autoscalingxv1.HorizontalPodAutoscalerX,
+	conditionType autoscalingxv1.HorizontalPodAutoscalerXConditionType,
+	status corev1.ConditionStatus,
+	reason string,
+	message string,
+) {
+	for i, cond := range hpax.Status.Conditions {
+		if cond.Type != conditionType {
+			continue
+		}
+
+		lastTransitionTime := metav1.Time{Time: r.Clock.Now()}
+		if cond.Status == status {
+			lastTransitionTime = cond.LastTransitionTime
+		}
+
+		hpax.Status.Conditions[i] = autoscalingxv1.HorizontalPodAutoscalerXCondition{
+			Type:               conditionType,
+			Status:             status,
+			LastTransitionTime: lastTransitionTime,
+			Reason:             reason,
+			Message:            message,
+		}
+		return
+	}
+
+	hpax.Status.Conditions = append(hpax.Status.Conditions, autoscalingxv1.HorizontalPodAutoscalerXCondition{
+		Type:               conditionType,
+		Status:             status,
+		LastTransitionTime: metav1.Time{Time: r.Clock.Now()},
+		Reason:             reason,
+		Message:            message,
+	})
+}
+
 // findHPAXForHPA finds all HorizontalPodAutoscalerX objects that target the given HPA.
 func (r *HorizontalPodAutoscalerXReconciler) findHPAXForHPA(ctx context.Context, o client.Object) []reconcile.Request {
 	hpa, ok := o.(*autoscalingv2.HorizontalPodAutoscaler)
@@ -147,8 +190,12 @@ func (r *HorizontalPodAutoscalerXReconciler) getHPA(ctx context.Context, hpax *a
 	hpa := &autoscalingv2.HorizontalPodAutoscaler{}
 	err := r.Get(ctx, client.ObjectKey{Name: hpax.Spec.HPATargetName, Namespace: hpax.Namespace}, hpa)
 	if err != nil {
+		r.setCondition(hpax, autoscalingxv1.ConditionReady, corev1.ConditionFalse, "FailedToGetHPA", "failed getting the target hpa")
 		return nil, err
 	}
+
+	hpax.Status.HPAObservedGeneration = ptr.To(*hpa.Status.ObservedGeneration)
+
 	return hpa, nil
 }
 
@@ -162,23 +209,43 @@ func (r *HorizontalPodAutoscalerXReconciler) getScalingActiveCondition(hpa *auto
 	return nil
 }
 
-// getDesiredMinReplicas calculates the desired minReplicas based on the scaling condition and fallback settings.
-func (r *HorizontalPodAutoscalerXReconciler) getDesiredMinReplicas(hpax *autoscalingxv1.HorizontalPodAutoscalerX, scalingActiveCondition *autoscalingv2.HorizontalPodAutoscalerCondition) int32 {
+// getDesiredMinReplicas calculates the desired minReplicas for the HorizontalPodAutoscalerX based on the ScalingActive condition for the hpa.
+func (r *HorizontalPodAutoscalerXReconciler) getDesiredMinReplicas(hpax *autoscalingxv1.HorizontalPodAutoscalerX, hpa *autoscalingv2.HorizontalPodAutoscaler) int32 {
+	var cond *autoscalingv2.HorizontalPodAutoscalerCondition
+	for _, condition := range hpa.Status.Conditions {
+		if condition.Type == autoscalingv2.ScalingActive {
+			cond = &condition
+		}
+	}
+
 	if hpax.Spec.Fallback == nil ||
-		scalingActiveCondition == nil ||
-		scalingActiveCondition.Status == corev1.ConditionTrue ||
-		scalingActiveCondition.Status == corev1.ConditionUnknown ||
-		scalingActiveCondition.LastTransitionTime.Time.Add(hpax.Spec.Fallback.Duration.Duration).After(r.Clock.Now()) {
+		cond == nil ||
+		cond.Status == corev1.ConditionTrue ||
+		cond.Status == corev1.ConditionUnknown {
+		r.setCondition(hpax, autoscalingxv1.ConditionFallback, corev1.ConditionFalse, "ScalingActive", "scaling active condition is not false")
 		return hpax.Spec.MinReplicas
 	}
 
+	if cond.LastTransitionTime.Time.Add(hpax.Spec.Fallback.Duration.Duration).After(r.Clock.Now()) {
+		r.setCondition(hpax, autoscalingxv1.ConditionFallback, corev1.ConditionTrue, "ScalingRecentlyInactive", "scaling active condition is false for not long enough")
+		return hpax.Spec.MinReplicas
+	}
+
+	r.setCondition(hpax, autoscalingxv1.ConditionFallback, corev1.ConditionFalse, "ScalingInactive", "scaling active condition is false for long enough")
 	return hpax.Spec.Fallback.MinReplicas
 }
 
-func (r *HorizontalPodAutoscalerXReconciler) updateHpaMinReplicas(ctx context.Context, hpa *autoscalingv2.HorizontalPodAutoscaler, minReplicas int32) error {
+func (r *HorizontalPodAutoscalerXReconciler) updateHpaMinReplicas(ctx context.Context, hpax *autoscalingxv1.HorizontalPodAutoscalerX, hpa *autoscalingv2.HorizontalPodAutoscaler) error {
+	minReplicas := r.getDesiredMinReplicas(hpax, hpa)
+
+	// TODO: manage field ownership
 	if hpa.Spec.MinReplicas != nil && minReplicas == *hpa.Spec.MinReplicas {
 		return nil
 	}
 	hpa.Spec.MinReplicas = &minReplicas
-	return r.Update(ctx, hpa)
+	err := r.Update(ctx, hpa)
+	if err != nil {
+		r.setCondition(hpax, autoscalingxv1.ConditionReady, corev1.ConditionFalse, "FailedToUpdateHPA", "failed updating the target hpa spec.minReplicas")
+	}
+	return err
 }

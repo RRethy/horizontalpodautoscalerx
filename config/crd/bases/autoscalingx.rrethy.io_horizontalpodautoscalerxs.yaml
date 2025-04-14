@@ -86,14 +86,67 @@ spec:
             description: HorizontalPodAutoscalerXStatus defines the observed state
               of HorizontalPodAutoscalerX.
             properties:
-              scalingActiveCondition:
-                description: ScalingActiveCondition is the last observed scaling condition.
-                type: string
-              scalingActiveConditionSince:
-                description: ScalingActiveConditionSince is the time when the scaling
-                  condition was last observed.
-                format: date-time
-                type: string
+              conditions:
+                description: Conditions is a list of conditions that apply to the
+                  HorizontalPodAutoscalerX.
+                items:
+                  description: Condition represents the condition of the HorizontalPodAutoscalerX.
+                  properties:
+                    hpaObservedGeneration:
+                      description: |-
+                        HPAObservedGeneration is the generation of the HorizontalPodAutoscaler
+                        when the condition was last observed.
+                      format: int64
+                      type: integer
+                    lastTransitionTime:
+                      description: |-
+                        LastTransitionTime is the last time the condition transitioned from one
+                        status to another.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        Message is a human-readable message indicating details about the last
+                        transition.
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        ObservedGeneration is the generation of the HorizontalPodAutoscalerX
+                        when the condition was last observed.
+                      format: int64
+                      type: integer
+                    reason:
+                      description: Reason is a brief reason for the condition's last
+                        transition.
+                      type: string
+                    status:
+                      description: Status is the status of the condition.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: Type is the type of the condition.
+                      type: string
+                  required:
+                  - observedGeneration
+                  - status
+                  - type
+                  type: object
+                type: array
+              hpaObservedGeneration:
+                description: |-
+                  HPAObservedGeneration is the generation of the HorizontalPodAutoscaler
+                  when the HorizontalPodAutoscalerX was last observed.
+                format: int64
+                type: integer
+              observedGeneration:
+                description: |-
+                  ObservedGeneration is the generation of the HorizontalPodAutoscalerX
+                  when it was last observed.
+                format: int64
+                type: integer
             type: object
         type: object
     served: true
