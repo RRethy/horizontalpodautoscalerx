@@ -58,16 +58,6 @@ type HorizontalPodAutoscalerXCondition struct {
 	// +kubebuilder:validation:Enum=True;False;Unknown
 	Status corev1.ConditionStatus `json:"status,omitempty"`
 
-	// ObservedGeneration is the generation of the HorizontalPodAutoscalerX
-	// when the condition was last observed.
-	// +kubebuilder:validation:Required
-	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
-
-	// HPAObservedGeneration is the generation of the HorizontalPodAutoscaler
-	// when the condition was last observed.
-	// +kubebuilder:validation:Optional
-	HPAObservedGeneration *int64 `json:"hpaObservedGeneration,omitempty"`
-
 	// LastTransitionTime is the last time the condition transitioned from one
 	// status to another.
 	// +kubebuilder:validation:Optional

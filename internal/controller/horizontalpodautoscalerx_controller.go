@@ -240,10 +240,11 @@ func (r *HorizontalPodAutoscalerXReconciler) getDesiredMinReplicas(hpax *autosca
 func (r *HorizontalPodAutoscalerXReconciler) updateHpaMinReplicas(ctx context.Context, hpax *autoscalingxv1.HorizontalPodAutoscalerX, hpa *autoscalingv2.HorizontalPodAutoscaler) error {
 	minReplicas := r.getDesiredMinReplicas(hpax, hpa)
 
-	// TODO: manage field ownership
 	if hpa.Spec.MinReplicas != nil && minReplicas == *hpa.Spec.MinReplicas {
 		return nil
 	}
+
+	// TODO: eventually we should use SSA and correctly use ownership.
 	hpa.Spec.MinReplicas = &minReplicas
 	err := r.Update(ctx, hpa)
 	if err != nil {

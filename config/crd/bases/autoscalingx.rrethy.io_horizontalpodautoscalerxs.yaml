@@ -92,12 +92,6 @@ spec:
                 items:
                   description: Condition represents the condition of the HorizontalPodAutoscalerX.
                   properties:
-                    hpaObservedGeneration:
-                      description: |-
-                        HPAObservedGeneration is the generation of the HorizontalPodAutoscaler
-                        when the condition was last observed.
-                      format: int64
-                      type: integer
                     lastTransitionTime:
                       description: |-
                         LastTransitionTime is the last time the condition transitioned from one
@@ -109,12 +103,6 @@ spec:
                         Message is a human-readable message indicating details about the last
                         transition.
                       type: string
-                    observedGeneration:
-                      description: |-
-                        ObservedGeneration is the generation of the HorizontalPodAutoscalerX
-                        when the condition was last observed.
-                      format: int64
-                      type: integer
                     reason:
                       description: Reason is a brief reason for the condition's last
                         transition.
@@ -130,7 +118,6 @@ spec:
                       description: Type is the type of the condition.
                       type: string
                   required:
-                  - observedGeneration
                   - status
                   - type
                   type: object
