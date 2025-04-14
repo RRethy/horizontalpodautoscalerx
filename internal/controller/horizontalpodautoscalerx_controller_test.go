@@ -214,7 +214,7 @@ var _ = Describe("HorizontalPodAutoscalerX Controller", func() {
 			}, consistentlyTimeout, interval).Should(Equal(minReplicas))
 		})
 
-		It("should update minReplicas if scaling active condition is true for short time but previously scaled up", func() {
+		It("should scale down minReplicas if scaling active condition is true for short time but previously scaled up", func() {
 			By("patching the minReplicas on the hpa")
 			hpa := &autoscalingv2.HorizontalPodAutoscaler{}
 			Expect(k8sClient.Get(ctx, hpaNamespacedName, hpa)).To(Succeed())

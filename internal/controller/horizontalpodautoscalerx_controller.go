@@ -194,7 +194,9 @@ func (r *HorizontalPodAutoscalerXReconciler) getHPA(ctx context.Context, hpax *a
 		return nil, err
 	}
 
-	hpax.Status.HPAObservedGeneration = ptr.To(*hpa.Status.ObservedGeneration)
+	if hpa.Status.ObservedGeneration != nil {
+		hpax.Status.HPAObservedGeneration = ptr.To(*hpa.Status.ObservedGeneration)
+	}
 
 	return hpa, nil
 }
