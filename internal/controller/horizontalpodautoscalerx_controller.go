@@ -246,6 +246,11 @@ func (r *HorizontalPodAutoscalerXReconciler) getHPA(ctx context.Context, hpax *a
 
 // getDesiredMinReplicas calculates the desired minReplicas for the HorizontalPodAutoscalerX based on the ScalingActive condition for the hpa.
 func (r *HorizontalPodAutoscalerXReconciler) getDesiredMinReplicas(hpax *autoscalingxv1.HorizontalPodAutoscalerX, hpa *autoscalingv2.HorizontalPodAutoscaler) int32 {
+	// TODO: get scaling active condition
+	// TODO: get desired from fallback + scaling active
+	// TODO: get override min replicas
+	// TODO: return max of above
+
 	var cond *autoscalingv2.HorizontalPodAutoscalerCondition
 	for _, condition := range hpa.Status.Conditions {
 		if condition.Type == autoscalingv2.ScalingActive {

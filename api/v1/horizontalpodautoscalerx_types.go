@@ -45,6 +45,8 @@ const (
 	ConditionReady HorizontalPodAutoscalerXConditionType = "Ready"
 	// ConditionFallback indicates that the HorizontalPodAutoscalerX is in fallback mode.
 	ConditionFallback HorizontalPodAutoscalerXConditionType = "FallbackTriggered"
+	// ConditionOverrideActive indicates that an override is actively applied.
+	ConditionOverrideActive HorizontalPodAutoscalerXConditionType = "OverrideActive"
 )
 
 // Condition represents the condition of the HorizontalPodAutoscalerX.
