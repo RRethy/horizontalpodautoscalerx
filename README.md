@@ -2,6 +2,8 @@
 
 Kubernetes controller that extends the Kubernetes HorizontalPodAutoscaler (HPA) with dynamic overrides, and fallbacks if it detects scaling failure.
 
+Note: This has not been tested in a production environment, open an issue and tag me if you want to use it in production.
+
 ## Description
 
 Create a HorizontalPodAutoscalerX resource, e.g.
