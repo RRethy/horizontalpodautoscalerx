@@ -94,13 +94,23 @@ func (r *HorizontalPodAutoscalerXReconciler) SetupWithManager(mgr ctrl.Manager) 
 		r.Clock = clock.RealClock{}
 	}
 
-	// Create an index for hpax.spec.hpaTargetName so we can find the hpax that targets a given hpa.
 	err := mgr.GetFieldIndexer().IndexField(
 		context.Background(),
 		&autoscalingxv1.HorizontalPodAutoscalerX{},
 		"spec.hpaTargetName",
 		func(obj client.Object) []string {
 			return []string{obj.(*autoscalingxv1.HorizontalPodAutoscalerX).Spec.HPATargetName}
+		})
+	if err != nil {
+		return err
+	}
+
+	err = mgr.GetFieldIndexer().IndexField(
+		context.Background(),
+		&autoscalingxv1.HPAOverride{},
+		"spec.hpaTargetName",
+		func(obj client.Object) []string {
+			return []string{obj.(*autoscalingxv1.HPAOverride).Spec.HPATargetName}
 		})
 	if err != nil {
 		return err
@@ -119,6 +129,11 @@ func (r *HorizontalPodAutoscalerXReconciler) SetupWithManager(mgr ctrl.Manager) 
 				custompredicate.HPAScalingActiveChangedPredicate{},
 				custompredicate.HPAMinReplicasChangedPredicate{},
 			)),
+		).
+		Watches(
+			&autoscalingxv1.HPAOverride{},
+			handler.EnqueueRequestsFromMapFunc(r.findHPAXForHPAOverride),
+			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
 		).
 		Complete(reconcile.AsReconciler(mgr.GetClient(), r))
 }
@@ -175,6 +190,32 @@ func (r *HorizontalPodAutoscalerXReconciler) findHPAXForHPA(ctx context.Context,
 		return nil
 	}
 
+	requests := make([]reconcile.Request, 0, len(hpaxList.Items))
+	for _, hpax := range hpaxList.Items {
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      hpax.GetName(),
+				Namespace: hpax.GetNamespace(),
+			},
+		})
+	}
+	return requests
+}
+
+// findHPAXForHPAOverride finds all HorizontalPodAutoscalerX objects that target the given HPAOverride.
+func (r *HorizontalPodAutoscalerXReconciler) findHPAXForHPAOverride(ctx context.Context, o client.Object) []reconcile.Request {
+	hpaOverride, ok := o.(*autoscalingxv1.HPAOverride)
+	if !ok {
+		return nil
+	}
+
+	hpaxList := &autoscalingxv1.HorizontalPodAutoscalerXList{}
+	if err := r.List(ctx, hpaxList, &client.ListOptions{
+		Namespace:     hpaOverride.GetNamespace(),
+		FieldSelector: fields.OneTermEqualSelector("spec.hpaTargetName", hpaOverride.Spec.HPATargetName),
+	}); err != nil {
+		return nil
+	}
 	requests := make([]reconcile.Request, 0, len(hpaxList.Items))
 	for _, hpax := range hpaxList.Items {
 		requests = append(requests, reconcile.Request{
