@@ -92,7 +92,6 @@ type HorizontalPodAutoscalerXStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:subresource:scale:specpath=.spec.minReplicas,statuspath=.status.minReplicas
 // +kubebuilder:resource:categories=all,shortName=hpax
 // +kubebuilder:printcolumn:name="HPA",type=string,JSONPath=".spec.hpaTargetName",description="The name of the HorizontalPodAutoscaler to scale"
 
