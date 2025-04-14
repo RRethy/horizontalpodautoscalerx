@@ -3,6 +3,7 @@
 # It should be run by config/default
 resources:
 - bases/autoscalingx.rrethy.io_horizontalpodautoscalerxs.yaml
+- bases/autoscalingx.rrethy.io_hpaoverrides.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

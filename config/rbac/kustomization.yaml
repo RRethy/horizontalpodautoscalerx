@@ -22,6 +22,9 @@ resources:
 # default, aiding admins in cluster management. Those roles are
 # not used by the {{ .ProjectName }} itself. You can comment the following lines
 # if you do not want those helpers be installed with your Project.
+- hpaoverride_admin_role.yaml
+- hpaoverride_editor_role.yaml
+- hpaoverride_viewer_role.yaml
 - horizontalpodautoscalerx_admin_role.yaml
 - horizontalpodautoscalerx_editor_role.yaml
 - horizontalpodautoscalerx_viewer_role.yaml

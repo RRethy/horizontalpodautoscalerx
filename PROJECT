@@ -17,4 +17,12 @@ resources:
   kind: HorizontalPodAutoscalerX
   path: rrethy.io/horizontalpodautoscalerx/api/v1
   version: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: rrethy.io
+  group: autoscalingx
+  kind: HPAOverride
+  path: rrethy.io/horizontalpodautoscalerx/api/v1
+  version: v1
 version: "3"
