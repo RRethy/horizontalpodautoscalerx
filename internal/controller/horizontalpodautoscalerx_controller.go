@@ -173,7 +173,7 @@ func (r *HorizontalPodAutoscalerXReconciler) findHPAXForHPA(ctx context.Context,
 		return nil
 	}
 
-	var requests []reconcile.Request
+	requests := make([]reconcile.Request, 0, len(hpaxList.Items))
 	for _, hpax := range hpaxList.Items {
 		requests = append(requests, reconcile.Request{
 			NamespacedName: types.NamespacedName{
@@ -199,16 +199,6 @@ func (r *HorizontalPodAutoscalerXReconciler) getHPA(ctx context.Context, hpax *a
 	}
 
 	return hpa, nil
-}
-
-// getScalingActiveCondition retrieves the ScalingActive condition from the HPA status.
-func (r *HorizontalPodAutoscalerXReconciler) getScalingActiveCondition(hpa *autoscalingv2.HorizontalPodAutoscaler) *autoscalingv2.HorizontalPodAutoscalerCondition {
-	for _, condition := range hpa.Status.Conditions {
-		if condition.Type == autoscalingv2.ScalingActive {
-			return &condition
-		}
-	}
-	return nil
 }
 
 // getDesiredMinReplicas calculates the desired minReplicas for the HorizontalPodAutoscalerX based on the ScalingActive condition for the hpa.

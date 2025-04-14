@@ -29,9 +29,8 @@ const (
 )
 
 var (
-	hpaxNamespacedName = types.NamespacedName{Name: hpaxName, Namespace: namespace}
-	hpaNamespacedName  = types.NamespacedName{Name: hpaName, Namespace: namespace}
-	defaultHpax        = &autoscalingxv1.HorizontalPodAutoscalerX{
+	hpaNamespacedName = types.NamespacedName{Name: hpaName, Namespace: namespace}
+	defaultHpax       = &autoscalingxv1.HorizontalPodAutoscalerX{
 		ObjectMeta: metav1.ObjectMeta{Name: hpaxName, Namespace: namespace},
 		Spec: autoscalingxv1.HorizontalPodAutoscalerXSpec{
 			HPATargetName: hpaName,
