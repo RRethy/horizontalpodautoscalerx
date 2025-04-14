@@ -1,8 +1,37 @@
 # horizontalpodautoscalerx
-// TODO(user): Add simple overview of use/purpose
+
+Kubernetes controller that extends the Kubernetes HorizontalPodAutoscaler (HPA) with dynamic overrides, and fallbacks if it detects scaling failure.
 
 ## Description
-// TODO(user): An in-depth paragraph about your project and overview of use
+
+Create a HorizontalPodAutoscalerX resource, e.g.
+
+```yaml
+apiVersion: autoscalingx.rrethy.io/v1
+kind: HorizontalPodAutoscalerX
+metadata:
+  name: horizontalpodautoscalerx-sample
+spec:
+  hpaTargetName: myhpa
+  fallback:
+    minReplicas: 50
+    duration: "120s" # the duration hpa scaling should fail before fallback kicks in
+  minReplicas: 10
+```
+
+Then have an HPA that targets a deployment, e.g.
+
+```yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: myhpa
+spec:
+  maxReplicas: 100
+  metrics: [] # fill in with your metrics
+```
+
+You MUST NOT specify `minReplicas` in the HPA, as this controller will override it.
 
 ## Getting Started
 
@@ -111,11 +140,7 @@ previously added to 'dist/chart/values.yaml' or 'dist/chart/manager/manager.yaml
 is manually re-applied afterwards.
 
 ## Contributing
-// TODO(user): Add detailed information on how you would like others to contribute to this project
-
-**NOTE:** Run `make help` for more information on all potential `make` targets
-
-More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
+Open an issue and tag me (`@RRethy`) before considering contributing to this project.
 
 ## License
 

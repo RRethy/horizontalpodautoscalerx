@@ -6,4 +6,8 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
   name: horizontalpodautoscalerx-sample
 spec:
-  # TODO(user): Add fields here
+  hpaTargetName: myhpa
+  fallback:
+    minReplicas: 50
+    duration: "120s"
+  minReplicas: 10
