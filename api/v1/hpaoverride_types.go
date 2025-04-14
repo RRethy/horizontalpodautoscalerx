@@ -6,17 +6,26 @@ import (
 
 // HPAOverrideSpec defines the desired state of HPAOverride.
 type HPAOverrideSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// MinReplicas is the minReplicas to override.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Minimum=0
+	MinReplicas int32 `json:"minReplicas,omitempty"`
 
-	// Foo is an example field of HPAOverride. Edit hpaoverride_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// Duration is the duration to apply this override.
+	// +kubebuilder:validation:Required
+	Duration metav1.Duration `json:"duration,omitempty"`
+
+	// HPATargetName is the name of the HorizontalPodAutoscaler to override.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	HPATargetName string `json:"hpaTargetName,omitempty"`
 }
 
 // HPAOverrideStatus defines the observed state of HPAOverride.
 type HPAOverrideStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// Active is the active status of the override.
+	// +kubebuilder:validation:Optional
+	Active bool `json:"active,omitempty"`
 }
 
 // +kubebuilder:object:root=true
