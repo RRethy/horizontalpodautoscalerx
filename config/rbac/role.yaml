@@ -43,7 +43,18 @@ rules:
   - autoscalingx.rrethy.io
   resources:
   - horizontalpodautoscalerxes/status
+  - hpaoverrides/status
   verbs:
   - get
   - patch
   - update
+- apiGroups:
+  - autoscalingx.rrethy.io
+  resources:
+  - hpaoverrides
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
