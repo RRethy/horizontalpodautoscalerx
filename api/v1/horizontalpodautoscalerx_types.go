@@ -92,8 +92,10 @@ type HorizontalPodAutoscalerXStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:categories=all,shortName=hpax
+// +kubebuilder:resource:categories=all;hpax,shortName=hpax
 // +kubebuilder:printcolumn:name="HPA",type=string,JSONPath=".spec.hpaTargetName",description="The name of the HorizontalPodAutoscaler to scale"
+// +kubebuilder:printcolumn:name="minReplicas",type=integer,JSONPath=".spec.minReplicas",description="The minReplicas for the HorizontalPodAutoscaler"
+// +kubebuilder:printcolumn:name="fallback",type=integer,JSONPath=".spec.fallback.minReplicas",description="The minReplicas to fallback to"
 
 // HorizontalPodAutoscalerX is the Schema for the horizontalpodautoscalerxes API.
 type HorizontalPodAutoscalerX struct {

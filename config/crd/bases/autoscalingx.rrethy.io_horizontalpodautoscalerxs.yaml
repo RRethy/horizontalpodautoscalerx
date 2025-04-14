@@ -10,6 +10,7 @@ spec:
   names:
     categories:
     - all
+    - hpax
     kind: HorizontalPodAutoscalerX
     listKind: HorizontalPodAutoscalerXList
     plural: horizontalpodautoscalerxs
@@ -23,6 +24,14 @@ spec:
       jsonPath: .spec.hpaTargetName
       name: HPA
       type: string
+    - description: The minReplicas for the HorizontalPodAutoscaler
+      jsonPath: .spec.minReplicas
+      name: minReplicas
+      type: integer
+    - description: The minReplicas to fallback to
+      jsonPath: .spec.fallback.minReplicas
+      name: fallback
+      type: integer
     name: v1
     schema:
       openAPIV3Schema:

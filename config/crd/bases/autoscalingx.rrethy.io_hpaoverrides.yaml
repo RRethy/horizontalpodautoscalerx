@@ -8,13 +8,30 @@ metadata:
 spec:
   group: autoscalingx.rrethy.io
   names:
+    categories:
+    - hpax
     kind: HPAOverride
     listKind: HPAOverrideList
     plural: hpaoverrides
+    shortNames:
+    - hpao
     singular: hpaoverride
   scope: Namespaced
   versions:
-  - name: v1
+  - additionalPrinterColumns:
+    - description: The name of the HorizontalPodAutoscaler to scale
+      jsonPath: .spec.hpaTargetName
+      name: HPA
+      type: string
+    - description: The minReplicas to override
+      jsonPath: .spec.minReplicas
+      name: MinReplicas
+      type: integer
+    - description: The active status of the override
+      jsonPath: .status.active
+      name: Active
+      type: boolean
+    name: v1
     schema:
       openAPIV3Schema:
         description: HPAOverride is the Schema for the hpaoverrides API.
@@ -52,10 +69,15 @@ spec:
                 format: int32
                 minimum: 0
                 type: integer
+              time:
+                description: Time is the time to apply this override.
+                format: date-time
+                type: string
             required:
             - duration
             - hpaTargetName
             - minReplicas
+            - time
             type: object
           status:
             description: HPAOverrideStatus defines the observed state of HPAOverride.

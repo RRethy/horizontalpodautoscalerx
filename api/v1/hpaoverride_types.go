@@ -15,6 +15,10 @@ type HPAOverrideSpec struct {
 	// +kubebuilder:validation:Required
 	Duration metav1.Duration `json:"duration,omitempty"`
 
+	// Time is the time to apply this override.
+	// +kubebuilder:validation:Required
+	Time metav1.Time `json:"time,omitempty"`
+
 	// HPATargetName is the name of the HorizontalPodAutoscaler to override.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
@@ -30,6 +34,10 @@ type HPAOverrideStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:resource:categories=hpax,shortName=hpao
+// +kubebuilder:printcolumn:name="HPA",type=string,JSONPath=".spec.hpaTargetName",description="The name of the HorizontalPodAutoscaler to scale"
+// +kubebuilder:printcolumn:name="MinReplicas",type=integer,JSONPath=".spec.minReplicas",description="The minReplicas to override"
+// +kubebuilder:printcolumn:name="Active",type=boolean,JSONPath=".status.active",description="The active status of the override"
 
 // HPAOverride is the Schema for the hpaoverrides API.
 type HPAOverride struct {
