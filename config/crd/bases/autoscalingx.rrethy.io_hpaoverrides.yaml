@@ -39,13 +39,30 @@ spec:
           spec:
             description: HPAOverrideSpec defines the desired state of HPAOverride.
             properties:
-              foo:
-                description: Foo is an example field of HPAOverride. Edit hpaoverride_types.go
-                  to remove/update
+              duration:
+                description: Duration is the duration to apply this override.
                 type: string
+              hpaTargetName:
+                description: HPATargetName is the name of the HorizontalPodAutoscaler
+                  to override.
+                minLength: 1
+                type: string
+              minReplicas:
+                description: MinReplicas is the minReplicas to override.
+                format: int32
+                minimum: 0
+                type: integer
+            required:
+            - duration
+            - hpaTargetName
+            - minReplicas
             type: object
           status:
             description: HPAOverrideStatus defines the observed state of HPAOverride.
+            properties:
+              active:
+                description: Active is the active status of the override.
+                type: boolean
             type: object
         type: object
     served: true
