@@ -64,9 +64,6 @@ func (r *HorizontalPodAutoscalerXReconciler) Reconcile(ctx context.Context, hpax
 		if !apiequality.Semantic.DeepEqual(orig, hpax) {
 			if err := r.Status().Update(ctx, hpax); err != nil {
 				log.Error(err, "updating status")
-				if retErr == nil {
-					retErr = fmt.Errorf("updating status: %w", err)
-				}
 			}
 		}
 	}()
@@ -305,9 +302,9 @@ func (r *HorizontalPodAutoscalerXReconciler) getOverrideSuggestion(ctx context.C
 func (r *HorizontalPodAutoscalerXReconciler) updateHpaMinReplicas(ctx context.Context, hpax *autoscalingxv1.HorizontalPodAutoscalerX, hpa *autoscalingv2.HorizontalPodAutoscaler) error {
 	minReplicas := slices.Max([]int32{hpax.Spec.MinReplicas, r.getFallbackSuggestion(hpax, hpa), r.getOverrideSuggestion(ctx, hpax)})
 
-	// TODO: patch the HPA instead of updating it
+	hpaCopy := hpa.DeepCopy()
 	hpa.Spec.MinReplicas = &minReplicas
-	err := r.Update(ctx, hpa)
+	err := r.Patch(ctx, hpa, client.StrategicMergeFrom(hpaCopy))
 	if err != nil {
 		r.setCondition(hpax, autoscalingxv1.ConditionReady, corev1.ConditionFalse, "FailedToUpdateHPA", "failed updating the target hpa spec.minReplicas")
 	}
