@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
@@ -244,13 +245,8 @@ func (r *HorizontalPodAutoscalerXReconciler) getHPA(ctx context.Context, hpax *a
 	return hpa, nil
 }
 
-// getDesiredMinReplicas calculates the desired minReplicas for the HorizontalPodAutoscalerX based on the ScalingActive condition for the hpa.
-func (r *HorizontalPodAutoscalerXReconciler) getDesiredMinReplicas(hpax *autoscalingxv1.HorizontalPodAutoscalerX, hpa *autoscalingv2.HorizontalPodAutoscaler) int32 {
-	// TODO: get scaling active condition
-	// TODO: get desired from fallback + scaling active
-	// TODO: get override min replicas
-	// TODO: return max of above
-
+// getFallbackSuggestion calculates the desired minReplicas for the HorizontalPodAutoscalerX based on the ScalingActive condition for the hpa.
+func (r *HorizontalPodAutoscalerXReconciler) getFallbackSuggestion(hpax *autoscalingxv1.HorizontalPodAutoscalerX, hpa *autoscalingv2.HorizontalPodAutoscaler) int32 {
 	var cond *autoscalingv2.HorizontalPodAutoscalerCondition
 	for _, condition := range hpa.Status.Conditions {
 		if condition.Type == autoscalingv2.ScalingActive {
@@ -275,14 +271,41 @@ func (r *HorizontalPodAutoscalerXReconciler) getDesiredMinReplicas(hpax *autosca
 	return hpax.Spec.Fallback.MinReplicas
 }
 
-func (r *HorizontalPodAutoscalerXReconciler) updateHpaMinReplicas(ctx context.Context, hpax *autoscalingxv1.HorizontalPodAutoscalerX, hpa *autoscalingv2.HorizontalPodAutoscaler) error {
-	minReplicas := r.getDesiredMinReplicas(hpax, hpa)
-
-	if hpa.Spec.MinReplicas != nil && minReplicas == *hpa.Spec.MinReplicas {
-		return nil
+func (r *HorizontalPodAutoscalerXReconciler) getOverrideSuggestion(ctx context.Context, hpax *autoscalingxv1.HorizontalPodAutoscalerX) int32 {
+	hpaOverrideList := &autoscalingxv1.HPAOverrideList{}
+	if err := r.List(ctx, hpaOverrideList, &client.ListOptions{
+		Namespace:     hpax.Namespace,
+		FieldSelector: fields.OneTermEqualSelector("spec.hpaTargetName", hpax.Spec.HPATargetName),
+	}); err != nil {
+		r.setCondition(hpax, autoscalingxv1.ConditionReady, corev1.ConditionFalse, "FailedToGetHPAOverride", "failed getting target hpa overrides")
+		return hpax.Spec.MinReplicas
 	}
 
-	// TODO: eventually we should use SSA and correctly use ownership.
+	replicas := []int32{}
+	now := r.Clock.Now()
+	for _, hpaOverride := range hpaOverrideList.Items {
+		if hpaOverride.Spec.Time.After(now) {
+			continue
+		}
+		if hpaOverride.Spec.Time.Add(hpaOverride.Spec.Duration.Duration).Before(now) {
+			continue
+		}
+		replicas = append(replicas, hpaOverride.Spec.MinReplicas)
+	}
+
+	if len(replicas) == 0 {
+		r.setCondition(hpax, autoscalingxv1.ConditionOverrideActive, corev1.ConditionFalse, "NoActiveOverride", "no active override was found")
+		return hpax.Spec.MinReplicas
+	}
+
+	r.setCondition(hpax, autoscalingxv1.ConditionOverrideActive, corev1.ConditionTrue, "OverrideActive", "an override that is active was found")
+	return slices.Max(replicas)
+}
+
+func (r *HorizontalPodAutoscalerXReconciler) updateHpaMinReplicas(ctx context.Context, hpax *autoscalingxv1.HorizontalPodAutoscalerX, hpa *autoscalingv2.HorizontalPodAutoscaler) error {
+	minReplicas := slices.Max([]int32{hpax.Spec.MinReplicas, r.getFallbackSuggestion(hpax, hpa), r.getOverrideSuggestion(ctx, hpax)})
+
+	// TODO: patch the HPA instead of updating it
 	hpa.Spec.MinReplicas = &minReplicas
 	err := r.Update(ctx, hpa)
 	if err != nil {
