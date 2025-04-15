@@ -35,6 +35,20 @@ spec:
 
 You MUST NOT specify `minReplicas` in the HPA, as this controller will override it.
 
+To define an override, either dynamically or in GitOps, create a `HPAOverride` CR, e.g.
+
+```yaml
+apiVersion: autoscalingx.rrethy.io/v1
+kind: HPAOverride
+metadata:
+  name: hpaoverride-sample
+spec:
+  hpaTargetName: myhpa
+  minReplicas: 100
+  duration: "3600s"
+  time: "2015-01-01T00:00:00Z" # the start time for the override
+```
+
 ## Getting Started
 
 ### Prerequisites
