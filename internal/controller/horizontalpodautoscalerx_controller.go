@@ -68,8 +68,6 @@ func (r *HorizontalPodAutoscalerXReconciler) Reconcile(ctx context.Context, hpax
 		}
 	}()
 
-	hpax.Status.ObservedGeneration = ptr.To(hpax.Generation)
-
 	hpa, err := r.getHPA(ctx, hpax)
 	if err != nil {
 		log.Error(err, "getting HPA")
@@ -82,6 +80,7 @@ func (r *HorizontalPodAutoscalerXReconciler) Reconcile(ctx context.Context, hpax
 		return ctrl.Result{}, fmt.Errorf("updating HPA spec.minReplicas: %w", err)
 	}
 
+	hpax.Status.ObservedGeneration = ptr.To(hpax.Generation)
 	r.setCondition(hpax, autoscalingxv1.ConditionReady, corev1.ConditionTrue, "HPAUpdated", "updated the minReplicas of the hpa")
 	return ctrl.Result{}, nil
 }
