@@ -177,8 +177,9 @@ func main() {
 	}
 
 	if err = (&controller.HorizontalPodAutoscalerXReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:        mgr.GetClient(),
+		EventRecorder: mgr.GetEventRecorderFor(controller.ControllerName),
+		Scheme:        mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HorizontalPodAutoscalerX")
 		os.Exit(1)

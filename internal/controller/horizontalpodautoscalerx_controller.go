@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/clock"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -31,11 +32,11 @@ const (
 )
 
 // HorizontalPodAutoscalerXReconciler reconciles a HorizontalPodAutoscalerX object
-// TODO: add events
 type HorizontalPodAutoscalerXReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
-	Clock  clock.Clock
+	Scheme        *runtime.Scheme
+	EventRecorder record.EventRecorder
+	Clock         clock.Clock
 }
 
 // +kubebuilder:rbac:groups=autoscalingx.rrethy.io,resources=horizontalpodautoscalerxes,verbs=get;list;watch;create;update;patch;delete
@@ -45,6 +46,7 @@ type HorizontalPodAutoscalerXReconciler struct {
 // +kubebuilder:rbac:groups=autoscalingx.rrethy.io,resources=hpaoverrides/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=autoscaling,resources=horizontalpodautoscalers,verbs=get;list;watch;update;patch;delete
 // +kubebuilder:rbac:groups=autoscaling,resources=horizontalpodautoscalers/status,verbs=get
+// +kubebuilder:rbac:groups=core,resources=events,verbs=create;patch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -72,12 +74,14 @@ func (r *HorizontalPodAutoscalerXReconciler) Reconcile(ctx context.Context, hpax
 	hpa, err := r.getHPA(ctx, hpax)
 	if err != nil {
 		log.Error(err, "getting HPA")
+		r.EventRecorder.Event(hpax, corev1.EventTypeWarning, "FailedToGetHPA", err.Error())
 		return ctrl.Result{}, fmt.Errorf("getting HPA: %w", err)
 	}
 
 	err = r.updateHpaMinReplicas(ctx, hpax, hpa)
 	if err != nil {
 		log.Error(err, "updating HPA spec.minReplicas")
+		r.EventRecorder.Event(hpax, corev1.EventTypeWarning, "FailedToUpdateHPA", err.Error())
 		return ctrl.Result{}, fmt.Errorf("updating HPA spec.minReplicas: %w", err)
 	}
 
