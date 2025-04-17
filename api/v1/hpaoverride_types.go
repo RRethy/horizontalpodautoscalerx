@@ -34,7 +34,7 @@ type HPAOverrideStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:categories=hpax,shortName=hpao
+// +kubebuilder:resource:categories=all,shortName=hpao
 // +kubebuilder:printcolumn:name="HPA",type=string,JSONPath=".spec.hpaTargetName",description="The name of the HorizontalPodAutoscaler to scale"
 // +kubebuilder:printcolumn:name="MinReplicas",type=integer,JSONPath=".spec.minReplicas",description="The minReplicas to override"
 // +kubebuilder:printcolumn:name="Active",type=boolean,JSONPath=".status.active",description="The active status of the override"

@@ -9,7 +9,7 @@ spec:
   group: autoscalingx.rrethy.io
   names:
     categories:
-    - hpax
+    - all
     kind: HPAOverride
     listKind: HPAOverrideList
     plural: hpaoverrides

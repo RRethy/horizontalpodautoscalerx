@@ -85,16 +85,11 @@ type HorizontalPodAutoscalerXStatus struct {
 	// when it was last observed.
 	// +kubebuilder:validation:Optional
 	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
-
-	// HPAObservedGeneration is the generation of the HorizontalPodAutoscaler
-	// when the HorizontalPodAutoscalerX was last observed.
-	// +kubebuilder:validation:Optional
-	HPAObservedGeneration *int64 `json:"hpaObservedGeneration,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:categories=all;hpax,shortName=hpax
+// +kubebuilder:resource:categories=all,shortName=hpax
 // +kubebuilder:printcolumn:name="HPA",type=string,JSONPath=".spec.hpaTargetName",description="The name of the HorizontalPodAutoscaler to scale"
 // +kubebuilder:printcolumn:name="minReplicas",type=integer,JSONPath=".spec.minReplicas",description="The minReplicas for the HorizontalPodAutoscaler"
 // +kubebuilder:printcolumn:name="fallback",type=integer,JSONPath=".spec.fallback.minReplicas",description="The minReplicas to fallback to"

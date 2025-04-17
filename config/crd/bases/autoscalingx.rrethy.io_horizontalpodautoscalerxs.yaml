@@ -10,7 +10,6 @@ spec:
   names:
     categories:
     - all
-    - hpax
     kind: HorizontalPodAutoscalerX
     listKind: HorizontalPodAutoscalerXList
     plural: horizontalpodautoscalerxs
@@ -131,12 +130,6 @@ spec:
                   - type
                   type: object
                 type: array
-              hpaObservedGeneration:
-                description: |-
-                  HPAObservedGeneration is the generation of the HorizontalPodAutoscaler
-                  when the HorizontalPodAutoscalerX was last observed.
-                format: int64
-                type: integer
               observedGeneration:
                 description: |-
                   ObservedGeneration is the generation of the HorizontalPodAutoscalerX

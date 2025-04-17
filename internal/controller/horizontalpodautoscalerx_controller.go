@@ -31,6 +31,7 @@ const (
 )
 
 // HorizontalPodAutoscalerXReconciler reconciles a HorizontalPodAutoscalerX object
+// TODO: add events
 type HorizontalPodAutoscalerXReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
@@ -233,11 +234,6 @@ func (r *HorizontalPodAutoscalerXReconciler) getHPA(ctx context.Context, hpax *a
 		r.setCondition(hpax, autoscalingxv1.ConditionReady, corev1.ConditionFalse, "FailedToGetHPA", "failed getting the target hpa")
 		return nil, err
 	}
-
-	if hpa.Status.ObservedGeneration != nil {
-		hpax.Status.HPAObservedGeneration = ptr.To(*hpa.Status.ObservedGeneration)
-	}
-
 	return hpa, nil
 }
 
