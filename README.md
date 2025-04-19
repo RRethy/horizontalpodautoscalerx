@@ -49,6 +49,10 @@ spec:
   time: "2015-01-01T00:00:00Z" # the start time for the override
 ```
 
+### Installation
+
+A prebuilt package is available at https://github.com/RRethy/horizontalpodautoscalerx/pkgs/container/horizontalpodautoscalerx.
+
 ## Getting Started
 
 ### Prerequisites
